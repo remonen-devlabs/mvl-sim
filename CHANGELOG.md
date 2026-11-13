@@ -3,7 +3,8 @@
 ## Unreleased
 
 - Units setting: metric or statute. The device's own fields show mi, mph, ft and °F (radar views in yards),
-  and `System.getDeviceSettings()` reports `UNIT_STATUTE` to the apps.
+  and `System.getDeviceSettings()` reports `UNIT_STATUTE` to the apps. The side panel's ride data follows it.
+- 12-hour clock setting: Time of Day shows 3:53 (no AM/PM, as on the Edge) and `is24Hour` is false.
 
 ## 0.1.0 (2026-11-13)
 

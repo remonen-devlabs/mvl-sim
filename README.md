@@ -148,11 +148,12 @@ fields can be set up first. Then open or drop a `.fit` file (or paste its path) 
 - **Radar (full screen)**: the same lane for a 1-field screen, with distance marks every 25 m and the
   nearest vehicle's distance (m) and closing speed (km/h), and the vehicles passed so far (the FIT file's
   `radar_current`, when the ride has it).
-- **Setup settings**: units, night mode, radar bar, weather, wind and the user's FTP, shared by all fields.
+- **Setup settings**: units, 12-hour clock, night mode, radar bar, weather, wind and the user's FTP, shared by all fields.
   **Units** is metric or statute (miles, mph, feet, °F; the radar views in yards): the device's own fields
   follow it, and `System.getDeviceSettings()` reports it to the apps as `distanceUnits`, `elevationUnits`,
   `paceUnits`, `heightUnits`, `temperatureUnits` and `weightUnits` (all the same; the device can set them one
-  by one). The side panel's ride data stays metric.
+  by one). The side panel's ride data follows it too. **12-hour clock** shows Time of Day as the Edge does
+  (3:53, no AM/PM) and sets `is24Hour` to false; `System.getClockTime().hour` stays 0-23, as on the device.
 - Drag the dividers between the device screen, the map and the side panel to resize them (double-click
   resets one); the screen scales to its column. Click the screen for actual pixels (1:1).
 - Space = play/pause, arrows = ±1 s (Shift ±60 s), drag the timeline or click the map to jump.
@@ -182,7 +183,8 @@ Example setup file:
   "weather": "auto",
   "wind": { "bearing": 270, "speed": 4 },
   "userFtp": null,
-  "units": "metric"
+  "units": "metric",
+  "clock12": false
 }
 ```
 

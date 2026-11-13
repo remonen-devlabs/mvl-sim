@@ -61,6 +61,7 @@ export class Sim {
             field: () => ({ obscurity: sim.obscurity }),
             night: () => !!sim.settings.night,
             statute: () => sim.settings.units === 'statute',
+            clock12: () => !!sim.settings.clock12,
             userFtp: () => sim.settings.userFtp != null ? sim.settings.userFtp : sim.ride.ftp,
             profile: () => sim.profile(),
             sport: () => ({ sport: sim.ride.sport ?? 2, subSport: sim.ride.subSport ?? 0 }),
@@ -367,7 +368,7 @@ export class Sim {
         c.fillStyle = night ? '#000' : '#fff';
         c.fillRect(0, 0, this.device.width, this.device.height);
         const ids = metricsFor(this.layout, this.fieldIndex, this.settings.others);
-        const opts = { sec: this.sec, k: this.k, ride: this.ride, fonts: this.fonts.builtins, night, units: this.settings.units };
+        const opts = { sec: this.sec, k: this.k, ride: this.ride, fonts: this.fonts.builtins, night, units: this.settings.units, clock12: this.settings.clock12 };
         this.layout.fields.forEach((f, i) => { if (i !== this.fieldIndex) drawMetricField(c, f, ids[i], opts); });
     }
     renderSeparators() {

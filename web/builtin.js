@@ -13,9 +13,9 @@ const started = (s) => s.timer !== 0;
 // Unit conversions from the FIT file's SI values (m/s, m, °C), as the device's unit settings would show them
 export const UNITS = {
     metric: { speed: (v) => v * 3.6, distance: (m) => m / 1000, length: (m) => m, temp: (c) => c,
-        shortLen: 1, shortName: 'm', speedName: 'km/h' },
+        shortLen: 1, shortName: 'm', speedName: 'km/h', lengthName: 'm', distanceName: 'km', tempName: '°C' },
     statute: { speed: (v) => v * 2.2369363, distance: (m) => m / 1609.344, length: (m) => m * 3.2808399, temp: (c) => c * 9 / 5 + 32,
-        shortLen: 0.9144, shortName: 'yd', speedName: 'mph' },
+        shortLen: 0.9144, shortName: 'yd', speedName: 'mph', lengthName: 'ft', distanceName: 'mi', tempName: '°F' },
 };
 const unitsOf = (name) => UNITS[name] || UNITS.metric;
 
@@ -91,9 +91,11 @@ export const METRICS = {
     distance:    { label: 'Distance', value: (s, k, r, u) => started(s) ? num(u.distance(s.distance), u.distance(s.distance) < 100 ? 2 : 1) : null },
     timer:       { label: 'Timer', value: (s) => clock(s.timerMs / 1000) },
     elapsed:     { label: 'Elapsed Time', value: (s, k, r) => started(s) && s.startT != null ? clock(s.t - s.startT) : clock(0) },
-    timeOfDay:   { label: 'Time of Day', value: (s, k, r) => {
+    timeOfDay:   { label: 'Time of Day', value: (s, k, r, u) => {
         const d = new Date((s.t + r.epoch + (r.localOffset || 0)) * 1000);
-        return `${d.getUTCHours()}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+        const h = d.getUTCHours();
+        // 12-hour clock as the Edge shows it: 3:53, no AM/PM
+        return `${u && u.clock12 ? (h % 12 || 12) : h}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
     } },
     altitude:    { label: 'Elevation', value: (s, k, r, u) => num(s.altitude == null ? null : u.length(s.altitude)) },
     ascent:      { label: 'Total Ascent', value: (s, k, r, u) => started(s) ? num(u.length(s.totalAscent)) : null },
@@ -125,8 +127,8 @@ export function metricsFor(layout, appField, picks) {
 export const top = (font) => font.ascent ?? font.height * 0.8;
 
 // Draw one field. fonts: FontSet.builtins (Map name -> font with width/height/draw)
-export function drawMetricField(ctx, f, id, { sec, k, ride, fonts, night, units }) {
-    const u = unitsOf(units);
+export function drawMetricField(ctx, f, id, { sec, k, ride, fonts, night, units, clock12 }) {
+    const u = { ...unitsOf(units), clock12: !!clock12 };
     const m = METRICS[id] || METRICS.none;
     const fg = night ? '#ffffff' : '#000000';
     ctx.fillStyle = night ? '#000000' : '#ffffff';

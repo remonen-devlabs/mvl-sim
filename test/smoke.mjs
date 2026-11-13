@@ -97,6 +97,13 @@ const ft = METRICS.altitude.value(sec, 2141, ride, UNITS.statute);
 check('statute elevation in feet', Math.abs(+ft - sec.altitude * 3.2808399) < 0.6, `${sec.altitude.toFixed(1)} m = ${ft} ft`);
 const units = (u) => { sim.settings = { ...sim.settings, units: u }; return sim.rt.T.System.getDeviceSettings().distanceUnits; };
 check('DeviceSettings distanceUnits follows the setup', units('statute') === 1 && units('metric') === 0);
+// 12-hour clock: the Edge shows 3:53 (no AM/PM) and apps see is24Hour false
+const afternoon = { ...sec, t: ride.tStart + 6 * 3600 + 53 * 60 }; // 15:53 local in the sample ride
+const t24 = METRICS.timeOfDay.value(afternoon, 0, ride, UNITS.metric), t12 = METRICS.timeOfDay.value(afternoon, 0, ride, { ...UNITS.metric, clock12: true });
+check('12-hour Time of Day', t24 === '15:53' && t12 === '3:53', `${t24} / ${t12}`);
+sim.settings = { ...sim.settings, clock12: true };
+check('DeviceSettings is24Hour follows the setup', sim.rt.T.System.getDeviceSettings().is24Hour === false);
+sim.settings = { ...sim.settings, clock12: false };
 
 // ------------------------------------------------------------ 4. server
 

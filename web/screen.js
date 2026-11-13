@@ -8,7 +8,7 @@ import { drawMetricField, drawSeparators, drawRadarBar } from './builtin.js';
 
 export class Screen {
     // fields: per layout field, { metric: id } or { app: { name, bundle, fonts, images, props } }
-    // common: { night, weatherMode ('fit'|'manual'|'none'), wind, userFtp, radarBar, units ('metric'|'statute') }
+    // common: { night, weatherMode ('fit'|'manual'|'none'), wind, userFtp, radarBar, units ('metric'|'statute'), clock12 }
     constructor({ device, layoutIndex, fields, ride, ctx, common, deviceFonts }) {
         this.device = device;
         this.layoutIndex = layoutIndex;
@@ -61,7 +61,7 @@ export class Screen {
         const c = this.ctx, night = !!this.common.night;
         c.fillStyle = night ? '#000' : '#fff';
         c.fillRect(0, 0, this.device.width, this.device.height);
-        const opts = { sec: this.k >= 0 ? this.ride.secs[this.k] : null, k: this.k, ride: this.ride, fonts: this.deviceFonts, night, units: this.common.units };
+        const opts = { sec: this.k >= 0 ? this.ride.secs[this.k] : null, k: this.k, ride: this.ride, fonts: this.deviceFonts, night, units: this.common.units, clock12: this.common.clock12 };
         for (const f of this.fields) {
             if (f.sim) f.sim.renderApp();
             else if (f.app) drawTranslateError(c, f.loc);

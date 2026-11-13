@@ -6,7 +6,7 @@ import { buildRide, idleRide, TIMER_ON } from './ride.js';
 import { BitmapFont, FontSet, loadDeviceFonts } from './fonts.js';
 import { hms } from './sim.js';
 import { Screen } from './screen.js';
-import { METRICS, DEFAULT_METRICS } from './builtin.js';
+import { METRICS, DEFAULT_METRICS, UNITS } from './builtin.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c]));
@@ -339,7 +339,7 @@ function commonSettings() {
     let mode = s.weather || 'auto';
     if (mode === 'auto') mode = state.ride && state.ride.hasWeather ? 'fit' : 'manual';
     return { night: !!s.night, weatherMode: mode, wind: s.wind || { bearing: 270, speed: 4 }, userFtp: s.userFtp ?? null, radarBar: s.radarBar !== false,
-        units: s.units === 'statute' ? 'statute' : 'metric' };
+        units: s.units === 'statute' ? 'statute' : 'metric', clock12: !!s.clock12 };
 }
 
 // The ride the screen runs on: the open FIT file, else an Edge that is on but not recording
@@ -464,6 +464,7 @@ function renderSettings() {
     const fitFtp = state.ride && state.ride.ftp != null ? state.ride.ftp : '–';
     rows.push(`<label title="UserProfile.getFunctionalThresholdPower(); empty = the FIT file's own FTP">User profile FTP <span><input type="number" id="userFtp" value="${s.userFtp ?? ''}" placeholder="${fitFtp}"> W</span></label>`);
     rows.push(`<label title="The device's unit settings: System.getDeviceSettings() distanceUnits, elevationUnits, temperatureUnits ..., and the device's own fields">Units <select id="units"><option value="metric">metric</option><option value="statute">statute (mi, ft, °F)</option></select></label>`);
+    rows.push(`<label title="System.getDeviceSettings().is24Hour, and the Time of Day field (3:53, no AM/PM, as on the Edge)">12-hour clock<input type="checkbox" id="clock12" ${s.clock12 ? 'checked' : ''}></label>`);
     rows.push(`<label>Night (black background)<input type="checkbox" id="night" ${s.night ? 'checked' : ''}></label>`);
     const rd = state.ride && state.ride.hasRadar ? '' : ' (no radar in this ride)';
     rows.push(`<label title="The device's own radar strip on the right edge while a vehicle is behind">Radar bar${rd}<input type="checkbox" id="radarBar" ${s.radarBar !== false ? 'checked' : ''}></label>`);
@@ -488,6 +489,7 @@ function onSettingChange(e) {
     else if (t.id === 'radarBar') s.radarBar = t.checked;
     else if (t.id === 'weatherMode') s.weather = t.value;
     else if (t.id === 'units') s.units = t.value;
+    else if (t.id === 'clock12') s.clock12 = t.checked;
     else if (t.id === 'windBearing') s.wind = { ...s.wind, bearing: +t.value };
     else if (t.id === 'windSpeed') s.wind = { ...s.wind, speed: +t.value };
     markDirty();
@@ -635,6 +637,7 @@ function render() {
 function updatePanel() {
     const r = curRide(), s = r.secs[state.k], sc = state.screen;
     const t = s.t - r.tStart;
+    const u = UNITS[state.setup && state.setup.units === 'statute' ? 'statute' : 'metric'];
     const clock = new Date((s.t + r.epoch + r.localOffset) * 1000).toISOString().slice(11, 19);
     $('clock').textContent = r.idle ? `no ride: the device is on, not recording   ${clock}` : `${hms(t)} / ${hms(r.secs.length - 1)}   ${clock}`;
     const timer = ['off', 'stopped', 'paused', 'on'][s.timer];
@@ -644,22 +647,22 @@ function updatePanel() {
     if (s.radar) {
         const n = s.radar.speeds.filter((v, i) => v > 0).length;
         const near = s.radar.ranges.map((x, i) => ({ x, v: s.radar.speeds[i] })).filter(o => o.v > 0).sort((a, b) => a.x - b.x)[0];
-        radar = n ? `${n} target${n > 1 ? 's' : ''}, nearest ${near.x} m at ${Math.round(near.v * 3.6)} km/h` : 'on, clear';
+        radar = n ? `${n} target${n > 1 ? 's' : ''}, nearest ${Math.round(near.x / u.shortLen)} ${u.shortName} at ${Math.round(u.speed(near.v))} ${u.speedName}` : 'on, clear';
     }
     const sim0 = sc && sc.sims[0];
     const w = sim0 ? sim0.env.weather() : null;
     const st = s.stats;
     const rows = [
         ['Timer', `${timer} (${hms(s.timerMs / 1000)})`],
-        ['Speed', s.speed == null ? '–' : `${(s.speed * 3.6).toFixed(1)} km/h`],
+        ['Speed', s.speed == null ? '–' : `${u.speed(s.speed).toFixed(1)} ${u.speedName}`],
         ['Power', s.power == null ? '–' : `${s.power}${st.avgPower != null ? ` (avg ${Math.round(st.avgPower)}, max ${st.maxPower})` : ''}`],
         ['Heart rate', s.hr ?? '–'], ['Cadence', s.cadence ?? '–'],
-        ['Altitude', s.altitude == null ? '–' : `${s.altitude.toFixed(1)} m`],
-        ['Ascent / descent', `${s.totalAscent} / ${s.totalDescent} m${r.sessionAscent != null ? ` (ride ${r.sessionAscent})` : ''}`],
-        ['Distance', `${(s.distance / 1000).toFixed(2)} km`],
+        ['Altitude', s.altitude == null ? '–' : `${u.length(s.altitude).toFixed(1)} ${u.lengthName}`],
+        ['Ascent / descent', `${Math.round(u.length(s.totalAscent))} / ${Math.round(u.length(s.totalDescent))} ${u.lengthName}${r.sessionAscent != null ? ` (ride ${Math.round(u.length(r.sessionAscent))})` : ''}`],
+        ['Distance', `${u.distance(s.distance).toFixed(2)} ${u.distanceName}`],
         ['Heading', s.heading == null ? '–' : `${Math.round((s.heading * 180 / Math.PI + 360) % 360)}°`],
         ['Gears', gears], ['Radar', radar],
-        ['Wind', w ? `from ${w.bearing}° at ${(+w.speed).toFixed(1)} m/s` : sim0 ? 'none' : '–'],
+        ['Wind', w ? `from ${w.bearing}° at ${(+w.speed).toFixed(1)} m/s${u === UNITS.statute ? ` (${u.speed(+w.speed).toFixed(1)} mph)` : ''}` : sim0 ? 'none' : '–'],
         ['Battery', s.battery != null ? `${s.battery} %` : '80 % (not in the file)'],
     ];
     $('inputs').innerHTML = rows.map(([a, b]) => `<tr><td>${a}</td><td class="num">${esc(b)}</td></tr>`).join('');
