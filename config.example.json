@@ -1,0 +1,7 @@
+{
+  "projects": ["../my-datafield", "/path/to/folder/with/projects"],
+  "key": "/path/to/developer_key",
+  "sdk": null,
+  "ciq": null,
+  "port": 8137
+}

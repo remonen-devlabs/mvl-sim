@@ -1,0 +1,5 @@
+# start.sh must keep LF line endings, even in a checkout or archive made on Windows
+*.sh   text eol=lf
+*.cmd  text eol=crlf
+*.fit  binary
+*.png  binary

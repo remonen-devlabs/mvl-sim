@@ -1,0 +1,5 @@
+<settings>
+    <setting propertyKey="@Properties.ftp" title="@Strings.FtpTitle">
+        <settingConfig type="numeric" min="50" max="2000" />
+    </setting>
+</settings>

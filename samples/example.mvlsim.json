@@ -1,0 +1,16 @@
+{
+  "mvlSim": 1,
+  "name": "Example: Power Zone on an Edge 1050",
+  "device": "edge1050",
+  "layout": "4 Fields C",
+  "fields": [
+    { "metric": "speed" },
+    { "app": "example-field", "jungle": "monkey.jungle", "lang": "eng", "settings": { "ftp": 250 } },
+    { "metric": "hr" },
+    { "metric": "gears" }
+  ],
+  "night": false,
+  "weather": "auto",
+  "wind": { "bearing": 270, "speed": 4 },
+  "userFtp": 250
+}
