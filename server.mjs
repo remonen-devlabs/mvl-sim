@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { Ciq, IS_WIN } from './ciq.mjs';
 import { findProjects, findSetups, describeProject, readBundle, readDevice, SETUP_EXT } from './bundle.mjs';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, 'web');

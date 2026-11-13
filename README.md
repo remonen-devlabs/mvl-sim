@@ -14,7 +14,7 @@ before you put a build on a device.
 Stage 1 covers data fields only (`DataField` and `SimpleDataField`). Watch faces, widgets and device
 apps are not supported.
 
-Version 0.1.0 (see `CHANGELOG.md`). This is a spare-time tool, provided as is (see the licence). Bug
+Version 0.2.0 (see `CHANGELOG.md`). This is a spare-time tool, provided as is (see the licence). Bug
 reports with a small project and FIT file that show the problem are welcome; there is no promise of
 support or of a fix by any date.
 

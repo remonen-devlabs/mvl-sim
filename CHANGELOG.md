@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-11-13)
 
 - Units setting: metric or statute. The device's own fields show mi, mph, ft and °F (radar views in yards),
   and `System.getDeviceSettings()` reports `UNIT_STATUTE` to the apps. The side panel's ride data follows it.
