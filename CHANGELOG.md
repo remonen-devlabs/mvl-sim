@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Units setting: metric or statute. The device's own fields show mi, mph, ft and °F (radar views in yards),
+  and `System.getDeviceSettings()` reports `UNIT_STATUTE` to the apps.
+
 ## 0.1.0 (2026-11-13)
 
 First version.

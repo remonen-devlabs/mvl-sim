@@ -1090,8 +1090,9 @@ export function createRuntime(env) {
         getDeviceSettings() {
             const o = new LangObject();
             const dev = env.device;
+            const unit = env.statute && env.statute() ? 1 : 0; // System.UNIT_STATUTE / UNIT_METRIC
             Object.assign(o, { screenWidth: dev.width, screenHeight: dev.height, screenShape: dev.screenShape ?? 3, is24Hour: true,
-                distanceUnits: 0, elevationUnits: 0, paceUnits: 0, heightUnits: 0, temperatureUnits: 0, weightUnits: 0,
+                distanceUnits: unit, elevationUnits: unit, paceUnits: unit, heightUnits: unit, temperatureUnits: unit, weightUnits: unit,
                 inputButtons: 0, isTouchScreen: !!dev.isTouch, isEnhancedReadabilityModeEnabled: false, vibrateOn: true, tonesOn: true,
                 activityTrackingOn: true, phoneConnected: false, connectionAvailable: false, doNotDisturb: false,
                 monkeyVersion: [5, 1, 0], partNumber: dev.partNumber || '', firmwareVersion: [0, 0], fontScale: new F(1),

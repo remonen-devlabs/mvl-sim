@@ -338,7 +338,8 @@ function commonSettings() {
     const s = state.setup;
     let mode = s.weather || 'auto';
     if (mode === 'auto') mode = state.ride && state.ride.hasWeather ? 'fit' : 'manual';
-    return { night: !!s.night, weatherMode: mode, wind: s.wind || { bearing: 270, speed: 4 }, userFtp: s.userFtp ?? null, radarBar: s.radarBar !== false };
+    return { night: !!s.night, weatherMode: mode, wind: s.wind || { bearing: 270, speed: 4 }, userFtp: s.userFtp ?? null, radarBar: s.radarBar !== false,
+        units: s.units === 'statute' ? 'statute' : 'metric' };
 }
 
 // The ride the screen runs on: the open FIT file, else an Edge that is on but not recording
@@ -462,6 +463,7 @@ function renderSettings() {
     const rows = [];
     const fitFtp = state.ride && state.ride.ftp != null ? state.ride.ftp : '–';
     rows.push(`<label title="UserProfile.getFunctionalThresholdPower(); empty = the FIT file's own FTP">User profile FTP <span><input type="number" id="userFtp" value="${s.userFtp ?? ''}" placeholder="${fitFtp}"> W</span></label>`);
+    rows.push(`<label title="The device's unit settings: System.getDeviceSettings() distanceUnits, elevationUnits, temperatureUnits ..., and the device's own fields">Units <select id="units"><option value="metric">metric</option><option value="statute">statute (mi, ft, °F)</option></select></label>`);
     rows.push(`<label>Night (black background)<input type="checkbox" id="night" ${s.night ? 'checked' : ''}></label>`);
     const rd = state.ride && state.ride.hasRadar ? '' : ' (no radar in this ride)';
     rows.push(`<label title="The device's own radar strip on the right edge while a vehicle is behind">Radar bar${rd}<input type="checkbox" id="radarBar" ${s.radarBar !== false ? 'checked' : ''}></label>`);
@@ -475,6 +477,7 @@ function renderSettings() {
     rows.push(`<div class="muted" style="font-size:11px">Changing a setting replays the ride from the start with it.</div>`);
     $('settings').innerHTML = rows.join('');
     $('weatherMode').value = s.weather || 'auto';
+    $('units').value = s.units === 'statute' ? 'statute' : 'metric';
     $('settings').querySelectorAll('input,select').forEach(inp => inp.addEventListener('change', onSettingChange));
 }
 
@@ -484,6 +487,7 @@ function onSettingChange(e) {
     else if (t.id === 'night') s.night = t.checked;
     else if (t.id === 'radarBar') s.radarBar = t.checked;
     else if (t.id === 'weatherMode') s.weather = t.value;
+    else if (t.id === 'units') s.units = t.value;
     else if (t.id === 'windBearing') s.wind = { ...s.wind, bearing: +t.value };
     else if (t.id === 'windSpeed') s.wind = { ...s.wind, speed: +t.value };
     markDirty();

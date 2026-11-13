@@ -1,6 +1,6 @@
 // The device's own data fields (speed, heart rate, ...) for the other fields of a data screen.
 // Values come from the same ride data the app gets; they are drawn with the device's built-in fonts
-// at the label/value positions of the device's simulator.json. Metric units.
+// at the label/value positions of the device's simulator.json. Metric or statute units (the setup's units).
 
 const num = (v, d = 0) => v == null || !isFinite(v) ? null : v.toFixed(d);
 const clock = (sec) => {
@@ -9,6 +9,15 @@ const clock = (sec) => {
     return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
 };
 const started = (s) => s.timer !== 0;
+
+// Unit conversions from the FIT file's SI values (m/s, m, °C), as the device's unit settings would show them
+export const UNITS = {
+    metric: { speed: (v) => v * 3.6, distance: (m) => m / 1000, length: (m) => m, temp: (c) => c,
+        shortLen: 1, shortName: 'm', speedName: 'km/h' },
+    statute: { speed: (v) => v * 2.2369363, distance: (m) => m / 1609.344, length: (m) => m * 3.2808399, temp: (c) => c * 9 / 5 + 32,
+        shortLen: 0.9144, shortName: 'yd', speedName: 'mph' },
+};
+const unitsOf = (name) => UNITS[name] || UNITS.metric;
 
 // Average of a value over the last n seconds (nulls skipped), like 3s power
 function avgBack(ride, k, n, key) {
@@ -62,9 +71,9 @@ function derived(ride) {
 // id -> { label, value(s, k, ride) -> string | null }
 export const METRICS = {
     none:        { label: '', value: () => '' },
-    speed:       { label: 'Speed', value: (s) => num(s.speed == null ? null : s.speed * 3.6, 1) },
-    avgSpeed:    { label: 'Avg Speed', value: (s) => num(s.stats.avgSpeed == null ? null : s.stats.avgSpeed * 3.6, 1) },
-    maxSpeed:    { label: 'Max Speed', value: (s) => num(s.stats.maxSpeed == null ? null : s.stats.maxSpeed * 3.6, 1) },
+    speed:       { label: 'Speed', value: (s, k, r, u) => num(s.speed == null ? null : u.speed(s.speed), 1) },
+    avgSpeed:    { label: 'Avg Speed', value: (s, k, r, u) => num(s.stats.avgSpeed == null ? null : u.speed(s.stats.avgSpeed), 1) },
+    maxSpeed:    { label: 'Max Speed', value: (s, k, r, u) => num(s.stats.maxSpeed == null ? null : u.speed(s.stats.maxSpeed), 1) },
     power:       { label: 'Power', value: (s) => num(s.power) },
     power3s:     { label: '3s Power', value: (s, k, r) => num(avgBack(r, k, 3, 'power')) },
     power10s:    { label: '10s Power', value: (s, k, r) => num(avgBack(r, k, 10, 'power')) },
@@ -79,18 +88,18 @@ export const METRICS = {
     maxHr:       { label: 'Max HR', value: (s) => num(s.stats.maxHr) },
     cadence:     { label: 'Cadence', value: (s) => num(s.cadence) },
     avgCadence:  { label: 'Avg Cadence', value: (s) => num(s.stats.avgCadence) },
-    distance:    { label: 'Distance', value: (s) => started(s) ? num(s.distance / 1000, s.distance < 100000 ? 2 : 1) : null },
+    distance:    { label: 'Distance', value: (s, k, r, u) => started(s) ? num(u.distance(s.distance), u.distance(s.distance) < 100 ? 2 : 1) : null },
     timer:       { label: 'Timer', value: (s) => clock(s.timerMs / 1000) },
     elapsed:     { label: 'Elapsed Time', value: (s, k, r) => started(s) && s.startT != null ? clock(s.t - s.startT) : clock(0) },
     timeOfDay:   { label: 'Time of Day', value: (s, k, r) => {
         const d = new Date((s.t + r.epoch + (r.localOffset || 0)) * 1000);
         return `${d.getUTCHours()}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
     } },
-    altitude:    { label: 'Elevation', value: (s) => num(s.altitude) },
-    ascent:      { label: 'Total Ascent', value: (s) => started(s) ? num(s.totalAscent) : null },
-    descent:     { label: 'Total Descent', value: (s) => started(s) ? num(s.totalDescent) : null },
+    altitude:    { label: 'Elevation', value: (s, k, r, u) => num(s.altitude == null ? null : u.length(s.altitude)) },
+    ascent:      { label: 'Total Ascent', value: (s, k, r, u) => started(s) ? num(u.length(s.totalAscent)) : null },
+    descent:     { label: 'Total Descent', value: (s, k, r, u) => started(s) ? num(u.length(s.totalDescent)) : null },
     calories:    { label: 'Calories', value: (s) => started(s) ? num(s.calories) : null },
-    temperature: { label: 'Temperature', value: (s) => num(s.temp) },
+    temperature: { label: 'Temperature', value: (s, k, r, u) => num(s.temp == null ? null : u.temp(s.temp)) },
     radar:       { label: 'Radar view', draw: (ctx, f, o) => drawRadarView(ctx, f, o) },
     radarFull:   { label: 'Radar (full screen)', draw: (ctx, f, o) => drawRadarView(ctx, f, o, true) },
     gears:       { label: 'Gears', value: (s) => s.gear && s.gear.fSize != null && s.gear.rSize != null ? `${s.gear.fSize}/${s.gear.rSize}` : null },
@@ -116,7 +125,8 @@ export function metricsFor(layout, appField, picks) {
 export const top = (font) => font.ascent ?? font.height * 0.8;
 
 // Draw one field. fonts: FontSet.builtins (Map name -> font with width/height/draw)
-export function drawMetricField(ctx, f, id, { sec, k, ride, fonts, night }) {
+export function drawMetricField(ctx, f, id, { sec, k, ride, fonts, night, units }) {
+    const u = unitsOf(units);
     const m = METRICS[id] || METRICS.none;
     const fg = night ? '#ffffff' : '#000000';
     ctx.fillStyle = night ? '#000000' : '#ffffff';
@@ -124,7 +134,7 @@ export function drawMetricField(ctx, f, id, { sec, k, ride, fonts, night }) {
     ctx.save();
     ctx.beginPath(); ctx.rect(f.x, f.y, f.w, f.h); ctx.clip();
     try {
-        if (m.draw) { m.draw(ctx, f, { sec, k, ride, fonts, night }); return; }
+        if (m.draw) { m.draw(ctx, f, { sec, k, ride, fonts, night, u }); return; }
         if (m.label && !f.labelDisabled) {
             const lf = (f.label && fonts.get(f.label.font)) || fonts.get('small');
             if (lf) {
@@ -133,7 +143,7 @@ export function drawMetricField(ctx, f, id, { sec, k, ride, fonts, night }) {
                 lf.draw(ctx, f.x + lx - tw / 2, f.y + (f.label ? ly - top(lf) : ly - lf.height / 2), m.label, night ? '#bbbbbb' : '#444444');
             }
         }
-        const text = sec ? (m.value(sec, k, ride) ?? '--') : '--';
+        const text = sec ? (m.value(sec, k, ride, u) ?? '--') : '--';
         if (!text) return;
         const dx = f.data ? f.data.x : f.w / 2, dy = f.data ? f.data.y : f.h * 0.6;
         // The device's value font; while the text is too wide, the next smaller built-in font (as the Edge does)
@@ -212,7 +222,7 @@ function radarTargets(ride, k) {
 // behind the rider as a vertical lane, the rider at the top, each vehicle a car shape that comes up from
 // the bottom (140 m back) as it closes in, amber or red by its closing speed. The lane's edges show the
 // highest threat, green when nothing is behind. Off or no radar data: a grey lane and a note.
-function drawRadarView(ctx, f, { k, ride, fonts, night }, full = false) {
+function drawRadarView(ctx, f, { k, ride, fonts, night, u = UNITS.metric }, full = false) {
     const targets = radarTargets(ride, k);
     const bg = night ? '#000' : '#fff', fg = night ? '#fff' : '#000';
     // full screen: the lane left of centre, distance marks left of it and the numbers right of it
@@ -239,7 +249,7 @@ function drawRadarView(ctx, f, { k, ride, fonts, night }, full = false) {
     // car size: fits the lane, and short enough that vehicles a few metres apart stay apart
     const carH = Math.min(laneW * 0.46 * 1.5, f.h * 0.11), carW = carH / 1.5;
     const top = ry + rs * 2.2 + carH / 2, bottom = f.y + f.h - pad - carH / 2;
-    if (full) drawRadarDetails(ctx, f, { k, ride, fonts, night, targets, lx, laneW, edge, top, bottom });
+    if (full) drawRadarDetails(ctx, f, { k, ride, fonts, night, u, targets, lx, laneW, edge, top, bottom });
     if (targets == null) {
         const sf = fonts.get('small') || fonts.get('tiny');
         const text = ride.hasRadar ? 'Radar off' : 'No radar data';
@@ -267,15 +277,16 @@ function roundRect(ctx, x, y, w, h, r) {
 
 // Full-screen radar: distance marks beside the lane, and right of it the nearest vehicle's distance and
 // closing speed and the vehicles passed so far (the FIT file's radar_current, when the ride has it)
-function drawRadarDetails(ctx, f, { k, ride, fonts, night, targets, lx, laneW, edge, top, bottom }) {
+function drawRadarDetails(ctx, f, { k, ride, fonts, night, u, targets, lx, laneW, edge, top, bottom }) {
     const fg = night ? '#fff' : '#000', muted = night ? '#aaa' : '#555';
     const tf = fonts.get('tiny') || fonts.get('small');
-    // distance marks every 25 m
+    // distance marks every 25 m (25 yd in statute units)
     ctx.fillStyle = muted;
-    for (let d = 25; d < RADAR_RANGE; d += 25) {
+    for (let n = 25; n * u.shortLen < RADAR_RANGE; n += 25) {
+        const d = n * u.shortLen;
         const y = top + d / RADAR_RANGE * (bottom - top);
         ctx.fillRect(lx - edge - 10, Math.round(y), 8, 2);
-        if (tf) { const t = `${d} m`, w = tf.width(t); tf.draw(ctx, lx - edge - 14 - w, y - tf.height / 2, t, muted); }
+        if (tf) { const t = `${n} ${u.shortName}`, w = tf.width(t); tf.draw(ctx, lx - edge - 14 - w, y - tf.height / 2, t, muted); }
     }
     // numbers in the right column
     const x0 = lx + laneW + edge, colW = f.x + f.w - x0;
@@ -283,8 +294,8 @@ function drawRadarDetails(ctx, f, { k, ride, fonts, night, targets, lx, laneW, e
     const near = targets && targets.length ? targets.slice().sort((a, b) => a.r - b.r)[0] : null;
     const s = k >= 0 ? ride.secs[k] : null;
     const rows = [
-        ['Nearest m', near ? String(near.r) : '--'],
-        ['Closing km/h', near ? String(Math.round(near.v * 3.6)) : '--'],
+        [`Nearest ${u.shortName}`, near ? String(Math.round(near.r / u.shortLen)) : '--'],
+        [`Closing ${u.speedName}`, near ? String(Math.round(u.speed(near.v))) : '--'],
         ['Passed', s && s.radarPassed != null ? String(s.radarPassed) : '--'],
     ];
     const rowH = Math.min((f.h - 20) / rows.length, f.h * 0.3);

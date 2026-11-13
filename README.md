@@ -131,7 +131,7 @@ fields can be set up first. Then open or drop a `.fit` file (or paste its path) 
   the new layout has fields.
 - **Fields** (side panel): one picker per field. For a Connect IQ field, its jungle file, language and
   settings from `properties.xml` / `settings.xml` are under the picker; a change replays that app.
-  The device's own fields use its built-in fonts and label/value positions, in metric units. Besides the
+  The device's own fields use its built-in fonts and label/value positions, in the setup's units. Besides the
   values of `Activity.Info` there are Normalized Power and Lap NP (match the NP the Edge wrote for 2 rides
   and 19 of 20 laps), Lap Time, and Grade (altitude change over the last 50 m; Garmin's smoothing is not
   published, so this is close, not exact).
@@ -148,7 +148,11 @@ fields can be set up first. Then open or drop a `.fit` file (or paste its path) 
 - **Radar (full screen)**: the same lane for a 1-field screen, with distance marks every 25 m and the
   nearest vehicle's distance (m) and closing speed (km/h), and the vehicles passed so far (the FIT file's
   `radar_current`, when the ride has it).
-- **Setup settings**: night mode, radar bar, weather, wind and the user's FTP, shared by all fields.
+- **Setup settings**: units, night mode, radar bar, weather, wind and the user's FTP, shared by all fields.
+  **Units** is metric or statute (miles, mph, feet, °F; the radar views in yards): the device's own fields
+  follow it, and `System.getDeviceSettings()` reports it to the apps as `distanceUnits`, `elevationUnits`,
+  `paceUnits`, `heightUnits`, `temperatureUnits` and `weightUnits` (all the same; the device can set them one
+  by one). The side panel's ride data stays metric.
 - Drag the dividers between the device screen, the map and the side panel to resize them (double-click
   resets one); the screen scales to its column. Click the screen for actual pixels (1:1).
 - Space = play/pause, arrows = ±1 s (Shift ±60 s), drag the timeline or click the map to jump.
@@ -177,7 +181,8 @@ Example setup file:
   "night": false,
   "weather": "auto",
   "wind": { "bearing": 270, "speed": 4 },
-  "userFtp": null
+  "userFtp": null,
+  "units": "metric"
 }
 ```
 
@@ -264,8 +269,8 @@ Calibrated on edge1050 and edgemtb; other devices use the same rules from their 
   `drawOffsetBitmap`, `SensorHistory`, `Communications`, `Background`, barrels. These report an error.
 - Integer–Float promotion with `Long` follows the documented rules but is not yet checked against the
   simulator.
-- The device's own fields only approximate the Edge's look (no units, Garmin's label texts may differ),
-  and only metric units.
+- The device's own fields only approximate the Edge's look (no unit labels, Garmin's label texts may
+  differ).
 - There is no phone connection; the battery is never charging.
 - Watch faces, widgets, device apps (planned later).
 

@@ -22,6 +22,7 @@ import { buildRide } from '../web/ride.js';
 import { readBundle } from '../bundle.mjs';
 import { Ciq } from '../ciq.mjs';
 import { Sim } from '../web/sim.js';
+import { METRICS, UNITS } from '../web/builtin.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -87,6 +88,15 @@ sim.seek(2141);
 drawn.length = 0;
 sim.render();
 check('example field draws 3 s power and zone', drawn.includes('218') && drawn.some(t => /Z3/.test(t)), drawn.join(' | '));
+
+// Units: the device's own fields and System.getDeviceSettings() follow the setup's units
+const sec = ride.secs[2141];
+const mph = METRICS.speed.value(sec, 2141, ride, UNITS.statute), kmh = METRICS.speed.value(sec, 2141, ride, UNITS.metric);
+check('statute speed in mph', Math.abs(+mph - +kmh / 1.609344) < 0.06, `${kmh} km/h = ${mph} mph`);
+const ft = METRICS.altitude.value(sec, 2141, ride, UNITS.statute);
+check('statute elevation in feet', Math.abs(+ft - sec.altitude * 3.2808399) < 0.6, `${sec.altitude.toFixed(1)} m = ${ft} ft`);
+const units = (u) => { sim.settings = { ...sim.settings, units: u }; return sim.rt.T.System.getDeviceSettings().distanceUnits; };
+check('DeviceSettings distanceUnits follows the setup', units('statute') === 1 && units('metric') === 0);
 
 // ------------------------------------------------------------ 4. server
 
