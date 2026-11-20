@@ -279,7 +279,19 @@ export class Sim {
             ambientPressure: f(s.pressure), rawAmbientPressure: f(s.pressure),
             frontDerailleurIndex: g.fIdx, frontDerailleurSize: g.fSize, frontDerailleurMax: s.frontMax,
             rearDerailleurIndex: g.rIdx, rearDerailleurSize: g.rSize, rearDerailleurMax: s.rearMax,
+            ...this.courseInfo(s.course),
         });
+    }
+
+    // Navigation fields while a course is followed (web/course.js); without one the Edge gives null
+    courseInfo(c) {
+        if (!c) return {};
+        const f = (v) => v == null ? null : new this.rt.F(v);
+        return {
+            nameOfNextPoint: c.nextName, distanceToNextPoint: f(c.nextDist), elevationAtNextPoint: f(c.nextAlt),
+            nameOfDestination: c.destName, distanceToDestination: f(c.destDist), elevationAtDestination: f(c.destAlt),
+            offCourseDistance: f(c.off),
+        };
     }
 
     sensorInfo() {

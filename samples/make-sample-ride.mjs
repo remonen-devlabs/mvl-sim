@@ -4,14 +4,24 @@
 // hill, power, heart rate, cadence, gear changes (2x11), a 1-minute pause, cars on the radar (and the radar
 // off for a while),
 // FTP 250 W and the battery level. Deterministic: the same file every run.
+// Also writes sample-course.fit: a course of the same two laps (20 km) with course points, for fields that
+// read the next course point. A JSON file [{"km": 1.5, "name": "Climb", "type": 1}, ...] replaces its
+// course points (types as in the FIT profile: 0 generic, 1 summit, 2 valley, 3 water, 4 food, ...).
 //
-//   node make-sample-ride.mjs [output.fit]
+//   node make-sample-ride.mjs [ride.fit] [course.fit] [points.json]
 
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const OUT = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), 'sample-ride.fit');
+const HERE = dirname(fileURLToPath(import.meta.url));
+const OUT = process.argv[2] || join(HERE, 'sample-ride.fit');
+const COURSE_OUT = process.argv[3] || join(HERE, 'sample-course.fit');
+const COURSE_POINTS = process.argv[4] ? JSON.parse(readFileSync(process.argv[4], 'utf8')) : [
+    { km: 1.2, name: 'Climb', type: 0 }, { km: 2.5, name: 'Summit', type: 1 }, { km: 7.5, name: 'Valley', type: 2 },
+    { km: 10.0, name: 'Water', type: 3 }, { km: 11.2, name: 'Climb', type: 0 }, { km: 12.5, name: 'Summit', type: 1 },
+    { km: 16.0, name: 'Sprint', type: 0 }, { km: 17.0, name: 'Sprint end', type: 0 },
+];
 
 // ------------------------------------------------------------- FIT writer
 
@@ -209,12 +219,38 @@ function gearData() {
 
 // ------------------------------------------------------------- header + CRC
 
-const body = Buffer.concat(chunks);
-const header = Buffer.alloc(14);
-header[0] = 14; header[1] = 0x20; header.writeUInt16LE(2132, 2); header.writeUInt32LE(body.length, 4);
-header.write('.FIT', 8, 'ascii');
-header.writeUInt16LE(crc16(header.subarray(0, 12)), 12);
-const file = Buffer.concat([header, body]);
-const crc = Buffer.alloc(2); crc.writeUInt16LE(crc16(file));
-writeFileSync(OUT, Buffer.concat([file, crc]));
+function writeFit(out) {
+    const body = Buffer.concat(chunks);
+    const header = Buffer.alloc(14);
+    header[0] = 14; header[1] = 0x20; header.writeUInt16LE(2132, 2); header.writeUInt32LE(body.length, 4);
+    header.write('.FIT', 8, 'ascii');
+    header.writeUInt16LE(crc16(header.subarray(0, 12)), 12);
+    const file = Buffer.concat([header, body]);
+    const crc = Buffer.alloc(2); crc.writeUInt16LE(crc16(file));
+    writeFileSync(out, Buffer.concat([file, crc]));
+    chunks.length = 0;
+}
+writeFit(OUT);
 console.log(`Wrote ${OUT}: ${(d / 1000).toFixed(1)} km, ${Math.round(ascent)} m up, ${passed} cars passed`);
+
+// ------------------------------------------------------------- the course: the same two laps
+
+const COURSE_M = 2 * LOOP_M, STEP_M = 25, COURSE_V = 8; // a record every 25 m, timed at 8 m/s
+const at = (m) => START + Math.round(m / COURSE_V);
+const semi = (m) => posAt(m).map(x => Math.round(x * SEMI));
+define(0, 0, [[0, T.enum], [1, T.uint16], [2, T.uint16], [4, T.uint32]]);
+data(0, [6, 255, 1, START]); // course file, manufacturer "development"
+define(1, 31, [[4, T.enum], [5, T.string, 16]]); // course: sport, name
+data(1, [2, 'Sample circle']);
+define(2, 19, [[253, T.uint32], [2, T.uint32], [3, T.sint32], [4, T.sint32], [5, T.sint32], [6, T.sint32],
+    [7, T.uint32], [8, T.uint32], [9, T.uint32]]); // lap
+data(2, [at(COURSE_M), START, ...semi(0), ...semi(COURSE_M), (at(COURSE_M) - START) * 1000, (at(COURSE_M) - START) * 1000, COURSE_M * 100]);
+define(3, 21, [[253, T.uint32], [0, T.enum], [1, T.enum]]); // event
+data(3, [START, 0, 0]); // timer start
+define(4, 20, [[253, T.uint32], [0, T.sint32], [1, T.sint32], [5, T.uint32], [2, T.uint16]]); // record
+for (let m = 0; m <= COURSE_M; m += STEP_M) data(4, [at(m), ...semi(m), m * 100, Math.round((altAt(m) + 500) * 5)]);
+define(5, 32, [[254, T.uint16], [1, T.uint32], [2, T.sint32], [3, T.sint32], [4, T.uint32], [5, T.enum], [6, T.string, 16]]); // course_point
+COURSE_POINTS.forEach((p, i) => { const m = p.km * 1000; data(5, [i, at(m), ...semi(m), Math.round(m * 100), p.type ?? 0, p.name]); });
+data(3, [at(COURSE_M), 0, 4]); // timer stop_all
+writeFit(COURSE_OUT);
+console.log(`Wrote ${COURSE_OUT}: ${COURSE_M / 1000} km, ${COURSE_POINTS.length} course points`);

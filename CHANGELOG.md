@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Courses: open or drop a FIT course file next to the ride and the ride follows it. Apps get the next
+  course point, the destination and the distance off the course in `Activity.Info` (`nameOfNextPoint`,
+  `distanceToNextPoint`, `nameOfDestination`, ...); the side panel shows them. A ride file with course
+  points of its own follows those. URL parameter `course=<path>`.
+- Samples: `samples/sample-course.fit`, a course of the sample ride's two laps with eight course points;
+  the generator also takes a JSON file of course points.
+
 ## 0.2.0 (2026-11-13)
 
 - Units setting: metric or statute. The device's own fields show mi, mph, ft and °F (radar views in yards),

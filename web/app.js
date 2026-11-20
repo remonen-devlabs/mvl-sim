@@ -3,6 +3,7 @@
 
 import { decodeFit } from './fit.js';
 import { buildRide, idleRide, TIMER_ON } from './ride.js';
+import { isCourseFit, buildCourse, applyCourse } from './course.js';
 import { BitmapFont, FontSet, loadDeviceFonts } from './fonts.js';
 import { hms } from './sim.js';
 import { Screen } from './screen.js';
@@ -20,7 +21,7 @@ const state = {
     env: null, projects: [], devices: [], setups: [],
     setup: null, setupPath: null, dirty: false,
     deviceInfo: null, deviceFonts: null, apps: new Map(), // cache key -> loaded app
-    ride: null, rideName: '', screen: null,
+    ride: null, rideName: '', screen: null, course: null,
     k: 0, playing: false, speed: 10, lastFrame: 0, acc: 0,
 };
 
@@ -504,17 +505,39 @@ function onSettingChange(e) {
 
 // ---------------------------------------------------------------- FIT
 
-async function loadFitBuffer(buf, name) {
+// A course file (file type 6) becomes the course the ride follows; anything else is the ride.
+// Returns 'course' or 'ride' (null on an error).
+async function loadFitBuffer(buf, name, path = null) {
     setStatus('Reading FIT…');
+    let fit, ride = null;
     try {
-        state.ride = buildRide(decodeFit(buf));
+        fit = decodeFit(buf);
+        if (isCourseFit(fit)) {
+            const course = buildCourse(fit, name);
+            if (!course) throw new Error('the course has no course points');
+            state.course = course;
+            store.set('coursePath', path || '');
+            if (path) $('fitPath').value = path;
+        } else {
+            ride = buildRide(fit);
+        }
     } catch (e) {
         showError(`FIT: ${e.message}`);
         setStatus('');
-        return;
+        return null;
     }
-    state.rideName = name;
     setStatus('');
+    renderCourse();
+    if (!ride) {
+        // A new course on the ride already open: play it again from the same second
+        if (state.ride) restartWithCourse();
+        return 'course';
+    }
+    ride.ownCourse = buildCourse(fit, name);
+    applyCourse(ride, state.course || ride.ownCourse);
+    state.ride = ride;
+    state.rideName = name;
+    if (path) store.set('fitPath', path);
     state.k = 0;
     renderSetupBar();
     drawTrack();
@@ -528,9 +551,34 @@ async function loadFitPath(p) {
     if (!p) return;
     const r = await fetch(`/api/fit?path=${encodeURIComponent(p)}`);
     if (!r.ok) { showError(`Could not read ${p}: ${await r.text()}`); return; }
-    store.set('fitPath', p);
     $('fitPath').value = p;
-    await loadFitBuffer(await r.arrayBuffer(), p.split(/[\\/]/).pop());
+    return loadFitBuffer(await r.arrayBuffer(), p.split(/[\\/]/).pop(), p);
+}
+
+// Several files at once (a ride and its course): courses first, so the ride starts on its course
+async function loadFiles(files) {
+    const bufs = await Promise.all([...files].map(async f => ({ f, buf: await f.arrayBuffer() })));
+    const isCourse = (b) => { try { return isCourseFit(decodeFit(b.buf)); } catch { return false; } };
+    bufs.sort((a, b) => isCourse(b) - isCourse(a));
+    for (const { f, buf } of bufs) await loadFitBuffer(buf, f.name);
+}
+
+// The course shown in the header; the ride's own course points when no course file is open
+function renderCourse() {
+    const c = state.course || state.ride?.ownCourse;
+    $('courseChip').hidden = !c;
+    $('courseName').textContent = c ? c.name + (state.course ? '' : ' (in the ride)') : '';
+    $('clearCourse').hidden = !state.course;
+}
+
+function restartWithCourse() {
+    applyCourse(state.ride, state.course || state.ride.ownCourse);
+    renderCourse();
+    if (!state.screen) return;
+    state.screen.reset();
+    const k = state.k;
+    state.k = -1;
+    seek(k);
 }
 
 // Folder dialog: browse the local folders through the server (a page cannot read a local path itself).
@@ -665,6 +713,13 @@ function updatePanel() {
         ['Wind', w ? `from ${w.bearing}° at ${(+w.speed).toFixed(1)} m/s${u === UNITS.statute ? ` (${u.speed(+w.speed).toFixed(1)} mph)` : ''}` : sim0 ? 'none' : '–'],
         ['Battery', s.battery != null ? `${s.battery} %` : '80 % (not in the file)'],
     ];
+    if (state.course) {
+        const c = s.course, d = (m) => `${u.distance(m).toFixed(2)} ${u.distanceName}`;
+        rows.push(['Course', state.course.name],
+            ['Next point', !c ? '–' : c.nextName == null ? 'none' : `${c.nextName} in ${d(c.nextDist)}`],
+            ['To destination', c ? d(c.destDist) : '–'],
+            ['Off course', c ? `${Math.round(u.length(c.off))} ${u.lengthName}` : '–']);
+    }
     $('inputs').innerHTML = rows.map(([a, b]) => `<tr><td>${a}</td><td class="num">${esc(b)}</td></tr>`).join('');
 
     // FIT fields and println output of every app, labelled by field
@@ -836,8 +891,13 @@ $('fwd1').addEventListener('click', () => seek(state.k + 1));
 $('fwd60').addEventListener('click', () => seek(state.k + 60));
 $('openBtn').addEventListener('click', () => $('fitFile').click());
 $('fitFile').addEventListener('change', async (e) => {
-    const f = e.target.files[0];
-    if (f) await loadFitBuffer(await f.arrayBuffer(), f.name);
+    await loadFiles(e.target.files);
+    e.target.value = '';
+});
+$('clearCourse').addEventListener('click', () => {
+    state.course = null;
+    store.set('coursePath', '');
+    if (state.ride) restartWithCourse(); else renderCourse();
 });
 $('loadPath').addEventListener('click', () => loadFitPath($('fitPath').value));
 $('fitPath').addEventListener('keydown', (e) => { if (e.key === 'Enter') loadFitPath($('fitPath').value); });
@@ -893,8 +953,7 @@ window.addEventListener('dragleave', () => { if (--dragDepth <= 0) $('drop').sty
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', async (e) => {
     e.preventDefault(); dragDepth = 0; $('drop').style.display = 'none';
-    const f = e.dataTransfer.files[0];
-    if (f) await loadFitBuffer(await f.arrayBuffer(), f.name);
+    await loadFiles(e.dataTransfer.files);
 });
 
 function showError(msg) {
@@ -947,6 +1006,8 @@ async function init() {
             : 'No Connect IQ project found. Paste a project folder (or a folder with projects below it) into "Add folder".']);
         await applySetup();
     }
+    const coursePath = params.get('course') || store.get('coursePath', '');
+    if (coursePath) await loadFitPath(coursePath);
     const fitPath = params.get('fit') || store.get('fitPath', '');
     $('fitPath').value = fitPath;
     if (fitPath) await loadFitPath(fitPath);

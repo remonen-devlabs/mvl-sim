@@ -4,8 +4,8 @@
 //
 //   node test/smoke.mjs
 //
-// 1. The sample ride generator writes the same bytes as samples/sample-ride.fit.
-// 2. The FIT decoder and ride builder read the sample ride.
+// 1. The sample generator writes the same bytes as samples/sample-ride.fit and samples/sample-course.fit.
+// 2. The FIT decoder and ride builder read the sample ride; the sample course is followed along it.
 // 3. The example data field is read, translated and run over the whole ride (stand-ins for the device,
 //    its fonts and the canvas), and draws its power.
 // 4. The server starts (through start.sh on macOS / Linux) with an empty Connect IQ folder, finds the
@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { request } from 'node:http';
 import { decodeFit } from '../web/fit.js';
 import { buildRide } from '../web/ride.js';
+import { isCourseFit, buildCourse, applyCourse } from '../web/course.js';
 import { readBundle } from '../bundle.mjs';
 import { Ciq } from '../ciq.mjs';
 import { Sim } from '../web/sim.js';
@@ -37,9 +38,10 @@ const tmp = mkdtempSync(join(tmpdir(), 'mvl-sim-smoke-'));
 
 // ------------------------------------------------------------ 1. sample generator
 
-const regenerated = join(tmp, 'sample-ride.fit');
-execFileSync(process.execPath, [join(SAMPLES, 'make-sample-ride.mjs'), regenerated]);
+const regenerated = join(tmp, 'sample-ride.fit'), regeneratedCourse = join(tmp, 'sample-course.fit');
+execFileSync(process.execPath, [join(SAMPLES, 'make-sample-ride.mjs'), regenerated, regeneratedCourse]);
 check('sample ride generator is deterministic', readFileSync(regenerated).equals(readFileSync(join(SAMPLES, 'sample-ride.fit'))));
+check('sample course generator is deterministic', readFileSync(regeneratedCourse).equals(readFileSync(join(SAMPLES, 'sample-course.fit'))));
 
 // ------------------------------------------------------------ 2. FIT decoder and ride
 
@@ -50,6 +52,17 @@ check('sample ride has gears, radar and battery', ride.hasGears && ride.hasRadar
 check('sample ride total ascent 115 m', ride.sessionAscent === 115, String(ride.sessionAscent));
 check('sample ride FTP 250', ride.ftp === 250, String(ride.ftp));
 const events = ride.secs.flatMap(s => s.events);
+const cbuf = readFileSync(join(SAMPLES, 'sample-course.fit'));
+const cfit = decodeFit(cbuf.buffer.slice(cbuf.byteOffset, cbuf.byteOffset + cbuf.length));
+const course = buildCourse(cfit, 'sample-course.fit');
+check('sample course read', isCourseFit(cfit) && course && course.name === 'Sample circle' && course.points.length === 8 && course.total === 20000,
+    course ? `${course.name}, ${course.points.length} points, ${course.total} m` : 'null');
+applyCourse(ride, course);
+// Second 1300 is on the second lap past its Climb point: the next point is the second lap's Summit
+const c1300 = ride.secs[1300].course;
+check('course followed on the second lap', c1300 && c1300.nextName === 'Summit' && Math.abs(c1300.nextDist - (12500 - ride.secs[1300].distance)) < 30 && c1300.off < 5,
+    JSON.stringify(c1300));
+check('course ends at the destination', ride.secs[ride.secs.length - 1].course === null);
 check('sample ride timer events', JSON.stringify(events) === JSON.stringify(['start', 'lap', 'pause', 'resume', 'pause']), events.join(','));
 
 // ------------------------------------------------------------ 3. example field over the whole ride
@@ -84,6 +97,12 @@ for (const k of [0, 30, 600, 1330, 2141, ride.secs.length - 1]) {
     if (sim.error) { crashed = `${k}: ${sim.error.message || sim.error}`; break; }
 }
 check('example field runs over the whole ride', !crashed, crashed || '');
+sim.seek(2141);
+drawn.length = 0;
+sim.render();
+sim.seek(1300);
+check('Activity.Info navigation fields', sim.info.nameOfNextPoint === 'Summit' && sim.info.nameOfDestination === 'Sample circle' && sim.info.distanceToNextPoint instanceof Object,
+    String(sim.info.nameOfNextPoint));
 sim.seek(2141);
 drawn.length = 0;
 sim.render();

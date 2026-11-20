@@ -54,7 +54,11 @@ ride itself.
 own. Nothing in it comes from a real ride. It has two laps of a 10 km circle (it does not follow roads)
 with a hill, power, heart rate, cadence, gear changes (2x11), a 1-minute pause, cars on the radar (and
 the radar off for a while), FTP 250 W and the battery level. `samples/make-sample-ride.mjs` writes it
-(`node make-sample-ride.mjs`); the output is the same every time.
+(`node make-sample-ride.mjs`); the output is the same every time. It also writes `samples/sample-course.fit`,
+a course of the same two laps (20 km) with eight course points (climbs, summits, water, a sprint), for
+fields that read the next course point. A JSON file of your own course points makes a course with them:
+`node make-sample-ride.mjs ride.fit course.fit points.json`, where `points.json` is
+`[{"km": 1.5, "name": "Climb", "type": 1}, ...]`.
 
 `samples/example-field` is a small data field to try MVL Sim with: 3 s power in big digits coloured by
 power zone (% of FTP, a setting), over a bar graph of the last 60 seconds. `samples/example.mvlsim.json`
@@ -119,6 +123,12 @@ Pick the setup (or start with **New**) and set the device, screen and fields. Be
 screen shows the device switched on but not recording (no sensors, timer off, current time), so the
 fields can be set up first. Then open or drop a `.fit` file (or paste its path) to play a ride.
 
+To ride along a **course**, open or drop a FIT course file as well (a ride and its course can be dropped
+together): a course file is recognised by its file type and followed along the ride instead of replacing
+it. The header shows its name (✕ stops following it) and the side panel the next course point, the
+distance to the destination and the distance off the course. A ride file that has course points of its
+own follows those when no course file is open.
+
 - **Save** / **Save as…** write the setup to a `*.mvlsim.json` file. **Save as…** asks for a name and a
   folder: the default setups folder (`Documents/MVL Sim`, or `--setups`), a project folder, or any other
   existing folder (remembered by the browser). Setups in all these folders (three levels deep) appear in
@@ -162,8 +172,8 @@ fields can be set up first. Then open or drop a `.fit` file (or paste its path) 
   temp folder) and shows the compiler's messages.
 - FIT developer fields the apps write (`createField` / `setData`) are listed in the side panel, and
   `System.println` output appears in the app log, tagged with the field when there are several apps.
-- URL parameters for a direct start: `?setup=<path>&fit=<path>&t=<seconds>`, or for one app
-  `?app=<name or path>&device=<id>&jungle=<file>&fit=<path>&t=<seconds>`.
+- URL parameters for a direct start: `?setup=<path>&fit=<path>&course=<path>&t=<seconds>`, or for one app
+  `?app=<name or path>&device=<id>&jungle=<file>&fit=<path>&course=<path>&t=<seconds>`.
 
 Example setup file:
 
@@ -207,6 +217,16 @@ profile messages, as `UserProfile`), sport, local time offset, weather (`weather
 present), battery level (`System.getSystemStats().battery`: Garmin's undocumented message 104, which
 Edge files write about once a minute, or `device_info` battery_level; 80 % when the file has neither).
 
+From a course (a course file, or course points in the ride's file): `nameOfNextPoint`,
+`distanceToNextPoint`, `elevationAtNextPoint`, `nameOfDestination` (the course's name),
+`distanceToDestination`, `elevationAtDestination` and `offCourseDistance` of `Activity.Info`. The
+position is matched to the nearest part of the course track, searched forward from the last match (so a
+course that passes the same place twice is followed in order); more than 100 m away counts as off the
+course, where the position along it stays. Within 30 m of the end the course is done and the fields go
+back to null. This approximates the Edge's own navigation, which has not been compared yet (for example
+when a passed point stops being the next one, or what the Edge reports off the course and after the
+finish).
+
 Derived: heading (from the GPS track), total ascent and descent (2 m hysteresis, scaled so the end
 equals the session's own totals), averages and maximums for `Activity.Info`. Wind can be set by hand.
 
@@ -232,7 +252,7 @@ FitContributor, System, Time (and Gregorian), Math, UserProfile, AntPlus (shifti
 Position, Sensor, Timer, StringUtil. A call to something missing is reported as
 `Toybox.X.y is not available in MVL Sim yet` with file and line.
 
-Tests: `node test/smoke.mjs` needs no SDK, Garmin files or browser. It checks the sample ride, runs
+Tests: `node test/smoke.mjs` needs no SDK, Garmin files or browser. It checks the sample ride and course, runs
 the example field over it and starts the server, and runs on Linux, macOS and Windows in CI.
 
 ## Fidelity

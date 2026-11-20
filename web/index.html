@@ -107,10 +107,12 @@
   <button id="checkBtn" title="Run monkeyc -l 3 for every Connect IQ field of the setup (output to the temp folder)">Compile check</button>
   <button id="addRoot" title="Browse for a Connect IQ project folder (with manifest.xml) or a folder with projects below it">Add folder…</button>
   <span style="flex:1"></span>
-  <input id="fitPath" placeholder="Path to a .fit file">
+  <span id="courseChip" hidden title="The ride follows this course: next course point and destination for the apps">Course: <b id="courseName"></b>
+    <button id="clearCourse" title="Stop following this course">✕</button></span>
+  <input id="fitPath" placeholder="Path to a .fit ride or course" title="A course file (a .fit course) is followed along the ride; any other .fit file is the ride">
   <button id="loadPath">Load</button>
   <label class="primary" style="cursor:pointer"><button class="primary" id="openBtn">Open FIT…</button>
-    <input id="fitFile" type="file" accept=".fit" hidden></label>
+    <input id="fitFile" type="file" accept=".fit" multiple hidden></label>
 </header>
 <main>
   <div id="screenWrap"><canvas id="screen" width="480" height="800" title="Click: actual pixels (1:1) / fit to window"></canvas></div>
