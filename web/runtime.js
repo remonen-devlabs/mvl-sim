@@ -1064,6 +1064,35 @@ export function createRuntime(env) {
     WatchUi.SimpleDataField.prototype.label = null;
     WatchUi.DataFieldAlert = class DataFieldAlert extends WatchUi.View {};
 
+    // Menus, for a data field's own settings menu on the device (AppBase.getSettingsView). MVL Sim does not
+    // show that menu (settings are set in the side panel), but a field that has one must load and run.
+    WatchUi.Menu2 = class Menu2 extends WatchUi.View {
+        initialize(opts) { this.$items = []; return null; }
+        addItem(item) { this.$items.push(item); return true; }
+        getItem(i) { return this.$items[i] ?? null; }
+        findItemById(id) { return this.$items.findIndex(it => it.mId === id); }
+        deleteItem(i) { if (i < 0 || i >= this.$items.length) return null; this.$items.splice(i, 1); return true; }
+        updateItem(item, i) { this.$items[i] = item; return null; }
+        setFocus(i) { return null; }
+        setTitle(t) { return null; }
+    };
+    WatchUi.MenuItem = class MenuItem extends LangObject {
+        initialize(label, subLabel, id, opts) { this.mLabel = label; this.mSubLabel = subLabel; this.mId = id; return null; }
+        getId() { return this.mId; }
+        getLabel() { return this.mLabel; }
+        getSubLabel() { return this.mSubLabel; }
+        setLabel(l) { this.mLabel = l; return null; }
+        setSubLabel(l) { this.mSubLabel = l; return null; }
+    };
+    WatchUi.Menu2InputDelegate = class Menu2InputDelegate extends LangObject {
+        onSelect(item) { return null; }
+        onBack() { return null; }
+        onDone() { return null; }
+        onTitle() { return null; }
+        onFooter() { return null; }
+        onWrap(key) { return true; }
+    };
+
     // ---------------- FitContributor
     const FitContributor = {
         DATA_TYPE_SINT8: 1, DATA_TYPE_UINT8: 2, DATA_TYPE_SINT16: 3, DATA_TYPE_UINT16: 4, DATA_TYPE_SINT32: 5,

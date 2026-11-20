@@ -8,6 +8,8 @@
   points of its own follows those. URL parameter `course=<path>`.
 - Samples: `samples/sample-course.fit`, a course of the sample ride's two laps with eight course points;
   the generator also takes a JSON file of course points.
+- Fields with their own settings menu on the device (`AppBase.getSettingsView`: `Menu2`, `MenuItem`,
+  `Menu2InputDelegate`) load and run; the menu itself is not shown (settings are in the side panel).
 
 ## 0.2.0 (2026-11-13)
 

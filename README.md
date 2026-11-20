@@ -247,7 +247,8 @@ Dictionaries, ByteArrays (including `encodeNumber` / `decodeNumber`), Strings, `
 Anything the translator does not know is an error with file and line, not a silent difference.
 
 Toybox modules with a stand-in: Lang, Graphics (Dc, fonts, bitmaps, buffered bitmaps), Activity,
-Application (Properties, Storage), WatchUi (View, DataField, SimpleDataField, layouts and drawables),
+Application (Properties, Storage), WatchUi (View, DataField, SimpleDataField, layouts and drawables;
+Menu2 for a field's settings menu, which is not shown),
 FitContributor, System, Time (and Gregorian), Math, UserProfile, AntPlus (shifting, radar), Weather,
 Position, Sensor, Timer, StringUtil. A call to something missing is reported as
 `Toybox.X.y is not available in MVL Sim yet` with file and line.
