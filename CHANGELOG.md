@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Fields are numbered in reading order (top to bottom, then left to right) in the side panel and in
+  messages. Before, the numbers followed the device file, which jumps around in many layouts. Saved
+  setups are unchanged.
+
 - Courses: open or drop a FIT course file next to the ride and the ride follows it. Apps get the next
   course point, the destination and the distance off the course in `Activity.Info` (`nameOfNextPoint`,
   `distanceToNextPoint`, `nameOfDestination`, ...); the side panel shows them. A ride file with course

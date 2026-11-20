@@ -116,6 +116,19 @@ function normalizeFields(setup, layout) {
     setup.fields = out;
 }
 
+// Field numbers as a rider reads the screen: top to bottom, then left to right. The setup keeps the
+// device's own field order (simulator.json), so saved setups do not change; only the shown numbers do.
+function readingOrder(layout) {
+    return layout.fields.map((loc, i) => i).sort((a, b) => {
+        const p = layout.fields[a], q = layout.fields[b];
+        return (p.y - q.y) || (p.x - q.x) || (a - b);
+    });
+}
+function fieldNo(i) {
+    const layout = state.deviceInfo && state.deviceInfo.layouts[state.layoutIndex];
+    return layout ? readingOrder(layout).indexOf(i) + 1 : i + 1;
+}
+
 function markDirty() {
     state.dirty = true;
     saveDraft();
@@ -317,10 +330,10 @@ async function applySetup() {
     state.loaded = await Promise.all(s.fields.map(async (f, i) => {
         if (!f.app) return null;
         const p = projectById(f.app);
-        if (p && !p.products.includes(s.device)) warnings.push(`Field ${i + 1}: ${p.name} does not list ${s.device} in its manifest.`);
+        if (p && !p.products.includes(s.device)) warnings.push(`Field ${fieldNo(i)}: ${p.name} does not list ${s.device} in its manifest.`);
         try {
             const a = await loadApp(f, s.device);
-            for (const w of a.warnings) warnings.push(`Field ${i + 1} (${a.name}): ${w}`);
+            for (const w of a.warnings) warnings.push(`Field ${fieldNo(i)} (${a.name}): ${w}`);
             return a;
         } catch (e) { return { name: appName(f.app), loadError: e.message }; }
     }));
@@ -377,13 +390,13 @@ function renderFields() {
     const layout = dev.layouts[state.layoutIndex];
     const apps = state.projects.filter(isField);
     const metricOpts = Object.entries(METRICS).map(([id, m]) => [`m:${id}`, id === 'none' ? '(empty)' : m.label]);
-    const rows = layout.fields.map((loc, i) => {
-        const f = s.fields[i];
+    const rows = readingOrder(layout).map((i, n) => {
+        const loc = layout.fields[i], f = s.fields[i];
         const val = f.app ? `a:${f.app}` : `m:${f.metric}`;
         const appOpts = apps.map(p => `<option value="a:${esc(p.id)}"${val === 'a:' + p.id ? ' selected' : ''} title="${esc(p.id)}">${esc(p.name)}${p.products.includes(s.device) ? '' : ' (not for this device)'}</option>`);
         if (f.app && !projectById(f.app)) appOpts.push(`<option value="a:${esc(f.app)}" selected>${esc(appName(f.app))} (not found)</option>`);
         const obsc = loc.obscurity.length ? ` <span class="muted" title="getObscurityFlags()">${esc(loc.obscurity.join(','))}</span>` : '';
-        let html = `<div class="fieldrow"><label>Field ${i + 1}${obsc}<select data-i="${i}" class="pick">`
+        let html = `<div class="fieldrow"><label>Field ${n + 1}${obsc}<select data-i="${i}" class="pick">`
             + (appOpts.length ? `<optgroup label="Connect IQ data fields">${appOpts.join('')}</optgroup>` : '')
             + `<optgroup label="Device data">${metricOpts.map(([v, l]) => `<option value="${v}"${v === val ? ' selected' : ''}>${esc(l)}</option>`).join('')}</optgroup></select></label>`;
         if (f.app) html += appDetails(f, i);
@@ -668,7 +681,7 @@ function render() {
     sc.render();
     const errs = [];
     sc.fields.forEach((f, i) => {
-        const who = `Field ${i + 1} (${f.app ? f.app.name : ''})`;
+        const who = `Field ${fieldNo(i)} (${f.app ? f.app.name : ''})`;
         if (f.app && f.app.loadError) errs.push(`${who}: cannot load\n${f.app.loadError}`);
         else if (f.translateError) errs.push(`${who}: translate error\n${f.translateError}`);
         else if (f.sim && f.sim.error) {
@@ -727,7 +740,7 @@ function updatePanel() {
     const several = sc ? sc.sims.length > 1 : false;
     if (sc) sc.fields.forEach((f, i) => {
         if (!f.sim) return;
-        const tag = `${i + 1}: ${f.app.name}`;
+        const tag = `${fieldNo(i)}: ${f.app.name}`;
         for (const x of f.sim.fitFields.values()) {
             const v = Array.isArray(x.v) ? x.v.map(y => f.sim.rt.$.str(y)).join(',') : f.sim.rt.$.str(x.v);
             const msg = { 18: 'session', 19: 'lap', 20: 'record' }[x.meta.mesgType] || x.meta.mesgType;
