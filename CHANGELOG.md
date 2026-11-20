@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 (2026-11-20)
 
 - Fields are numbered in reading order (top to bottom, then left to right) in the side panel and in
   messages. Before, the numbers followed the device file, which jumps around in many layouts. Saved
