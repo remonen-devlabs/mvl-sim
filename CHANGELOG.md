@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `AntPlus.BikeRadar.getDeviceState()` returns a `DeviceState`: `DEVICE_STATE_TRACKING` while the ride has
+  radar data, `DEVICE_STATE_SEARCHING` while the radar is off. The `DEVICE_STATE_*` constants exist, and the
+  threat constants have their real names (`THREAT_LEVEL_NO_THREAT`, `THREAT_LEVEL_VEHICLE_APPROACHING`,
+  `THREAT_LEVEL_VEHICLE_FAST_APPROACHING`).
+
 ## 0.2.1 (2026-11-20)
 
 - Fields are numbered in reading order (top to bottom, then left to right) in the side panel and in

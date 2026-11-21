@@ -1229,9 +1229,12 @@ export function createRuntime(env) {
 
     // ---------------- AntPlus
     class RadarTarget extends LangObject {}
+    class DeviceState extends LangObject {}
     const AntPlus = {
-        THREAT_NONE: 0, THREAT_APPROACHING: 1, THREAT_FAST_APPROACHING: 2,
+        THREAT_LEVEL_NO_THREAT: 0, THREAT_LEVEL_VEHICLE_APPROACHING: 1, THREAT_LEVEL_VEHICLE_FAST_APPROACHING: 2,
         THREAT_SIDE_NO_SIDE: 0, THREAT_SIDE_RIGHT: 1, THREAT_SIDE_LEFT: 2,
+        DEVICE_STATE_DEAD: 0, DEVICE_STATE_CLOSED: 1, DEVICE_STATE_SEARCHING: 2, DEVICE_STATE_TRACKING: 3, DEVICE_STATE_CNT: 4,
+        DeviceState,
         RadarTarget,
         BikeRadarListener: class BikeRadarListener extends LangObject {},
         BikeRadar: class BikeRadar extends LangObject {
@@ -1250,7 +1253,13 @@ export function createRuntime(env) {
                 }
                 return out;
             }
-            getDeviceState() { return null; }
+            // Tracking while the ride has radar data, searching while it is off (all -1)
+            getDeviceState() {
+                const o = Object.create(DeviceState.prototype);
+                o.state = env.radar() ? 3 : 2;
+                o.deviceNumber = 1;
+                return o;
+            }
         },
     };
 
